@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Task, Project, DEFAULT_PROJECTS } from '@/types/task';
+import { enqueueChange, processQueue } from './sync';
 
 const TASKS_KEY = '@devtasks:tasks';
 const PROJECTS_KEY = '@devtasks:projects';
@@ -26,6 +27,9 @@ export async function addTask(task: Task): Promise<Task[]> {
   const tasks = await getTasks();
   const updatedTasks = [task, ...tasks];
   await saveTasks(updatedTasks);
+  // enqueue create for background sync
+  enqueueChange({ type: 'create', task });
+  processQueue();
   return updatedTasks;
 }
 
@@ -35,6 +39,8 @@ export async function updateTask(taskId: string, updates: Partial<Task>): Promis
     t.id === taskId ? { ...t, ...updates, updatedAt: new Date().toISOString() } : t
   );
   await saveTasks(updatedTasks);
+  enqueueChange({ type: 'update', taskId, updates });
+  processQueue();
   return updatedTasks;
 }
 
@@ -42,6 +48,8 @@ export async function deleteTask(taskId: string): Promise<Task[]> {
   const tasks = await getTasks();
   const updatedTasks = tasks.filter((t) => t.id !== taskId);
   await saveTasks(updatedTasks);
+  enqueueChange({ type: 'delete', taskId });
+  processQueue();
   return updatedTasks;
 }
 
